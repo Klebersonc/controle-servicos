@@ -22,18 +22,9 @@ except Exception:
 
 def is_admin():
   try:
-    return ctypes.windll.shell32.IsUserAnAdmin()
+    return bool(ctypes.windll.shell32.IsUserAnAdmin())
   except Exception:
     return False
-
-
-# Reinicia o script pedindo permissão de Administrador se não tiver
-if not is_admin():
-  params = " ".join([f'"{arg}"' for arg in sys.argv])
-  ctypes.windll.shell32.ShellExecuteW(
-      None, "runas", sys.executable, params, None, 1
-  )
-  sys.exit()
 
 # Paleta de cores moderna (Dark Theme)
 CORES = {
@@ -130,9 +121,15 @@ def controlar_servico(nomes, acao):
   def tarefa():
     lista = ",".join([f"'{n}'" for n in nomes])
     force_flag = " -Force" if acao == "Stop" else ""
-    cmd = (
-        f"powershell -NoProfile -Command \"{acao}-Service -Name {lista}{force_flag}\""
-    )
+    ps_cmd = f"{acao}-Service -Name {lista}{force_flag}"
+    if is_admin():
+      cmd = f'powershell -NoProfile -Command "{ps_cmd}"'
+    else:
+      cmd = (
+          "powershell -NoProfile -Command "
+          f'"Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait '
+          f"-ArgumentList '-NoProfile -Command \\\"{ps_cmd}\\\"'\""
+      )
     subprocess.run(cmd, shell=True, creationflags=0x08000000)
     app.after(0, atualizar_interface)
 
